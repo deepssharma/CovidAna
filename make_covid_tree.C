@@ -13,7 +13,7 @@
 Long64_t nentries;
 Long64_t nbytes;
 
-void make_covid_tree();
+void make_covid_tree(int, const char* , const char*, const char*);
 
 void define_tree();
 
@@ -29,7 +29,7 @@ void ana_tree();
 
 void fit_histos();
 
-void draw_fits();
+void draw_fits(const char*, const char*, const char*);
 
 void write_output();
 
@@ -37,11 +37,15 @@ void return_month_year(const string&);
 
 void get_means();
 
+void set_timebins_array();
+
+vector<double > hosp_cum[59];
+
 char str[255];
 char str2[255];
 string str1;
 
-string name; string name1;
+string name; string name1; string title;
 string Condition;
 //char Condition[100];//sprintf(Condition,"Confirmed>-999 && State==\"%s\"",states[i]);
 
@@ -76,8 +80,8 @@ int Days =-999;
 
 int countlines=0;
 int countfiles=0;
-const int timebins =106;
-const int meanbins =106;
+const int timebins =109;
+const int meanbins =109;
 
 double dailyD[59][10000];
 double dailyC[59][10000];
@@ -96,18 +100,26 @@ int HH[59][10000];
 
 double meanH1[59];
 double meanH2[59];
+double meanH3[59];
 
-//const char *plotstate[3] ={"Massachusetts","Georgia","Florida"};
-const char *plotstate[3] ={"Ohio","Arizona","Virginia"};
+const char *plotstate[3] ={"Massachusetts","Georgia","Florida"};
+//const char *plotstate[3] ={"Ohio","New York","Virginia"};
+//char *plotstate[3];// ={"Alabama","Arizona","Virginia"};
 
 int COLORS[9]  = {kBlack, kRed,kOrange,kSpring+5,kGreen,kCyan,kBlue,kMagenta+0,kPink+9};
 
-double daysC[timebins]={0, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,  97,  98,  99,  100,  101, 102, 103,104};
+double daysC[timebins];
+//double daysC[timebins]={0, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,  97,  98,  99,  100,  101, 102, 103,104};
 
+
+TLegend *leg1;
+TLegend *leg2;
 
 TTree *MyTree;
-
 TFile *fout;
+TCanvas *c2;
+TCanvas *c3;
+TCanvas *c4;
 
 TFile *fin;
 TChain *T;
@@ -150,8 +162,13 @@ const char *states1[59]={"Alabama","Alaska","Arizona","Arkansas","California","C
 
 
 
-void make_covid_tree(int fetch_data =0)
+void make_covid_tree(int fetch_data =0, const char *st1="Massachusetts", const char *st2 ="Georgia",const char* st3 ="Florida")
 {
+  
+  //sprintf(plotstate[0],"%s",st1);
+  //sprintf(plotstate[1],"%s",st2);
+  //sprintf(plotstate[2],"%s",st3);
+  
   if(fetch_data==1)
     {
       cout<<"Reading the newly fetched data"<<endl;
@@ -169,6 +186,9 @@ void make_covid_tree(int fetch_data =0)
   else if(fetch_data==0)
     {
       clear_variables();
+
+      set_timebins_array();
+      
       cout<<"Analyzing the already generated file"<<endl;
       T     = new TChain("MyTree");
 
@@ -187,9 +207,9 @@ void make_covid_tree(int fetch_data =0)
       get_means();
       
       fit_histos();
-
-      draw_fits();
-
+      cout<<st1<<"  "<<st2<<"  "<<st3<<endl;
+      draw_fits(st1, st2, st3);
+      
       write_output();
       
     }
@@ -327,6 +347,7 @@ void clear_variables()
       
       meanH1[i] =0;
       meanH2[i] =0;
+      meanH3[i] =0;
       for(int j =0; j<10000; j++)
 	{
 	  dailyC[i][j]= 0;
@@ -368,6 +389,7 @@ void init_tree()
 
 void ana_tree()
 {
+  double cum_number=0;
   for (int i=0; i<59; i++)
     {
       hC[i] = (TProfile*)hconfirmed[i]->ProfileX();
@@ -375,8 +397,11 @@ void ana_tree()
       hH[i] = (TProfile*)hhospital[i]->ProfileX();
       hMR[i]=(TProfile*)hmortR[i]->ProfileX();
       hHR[i]=(TProfile*)hhosptR[i]->ProfileX();
+      //cum_num = hC[i]->GetBinContent(20);
+      //hosp_cum.push_back
+      //cout<<hC[i]->GetBinContent(48)<<endl;
     }
-    
+  
   int index=0; int st_index=-999;int cc=0;
   for (int i=0; i<nentries; i++)
   {
@@ -483,12 +508,14 @@ void init_histos()
       name1 = Form("hC_%s", states1[i]);
       Condition = Form("Confirmed>-999 && State==\"%s\"", states[i]);
 
-      T->Draw("Confirmed>>htemp()", Condition.c_str());
+      //T->Draw("Confirmed>>htemp()", Condition.c_str());
+      T->Draw("Hospitalized>>htemp()", Condition.c_str());
       TH1F *h = (TH1F*)gROOT->FindObject("htemp");
       nbins   = h->GetNbinsX();
       bin_hi  = h->GetBinLowEdge(nbins);
       hconfirmed[i]=new TH2D(name1.c_str(), name.c_str(),timebins, 0, timebins, 200,0,bin_hi);
-      name=Form("Confirmed:Days>>%s",name1.c_str());
+      //name=Form("Confirmed:Days>>%s",name1.c_str());
+      name=Form("Hospitalized:Days>>%s",name1.c_str());
       T->Draw(name.c_str(),Condition.c_str());
 
       name = Form("Deaths (%s)", states[i]);
@@ -503,7 +530,7 @@ void init_histos()
       T->Draw(name.c_str(),Condition.c_str());
       
       
-      name = Form("Hospitalized (%s)", states[i]);
+      name = Form("Hospitalized (%s); Time since 04/12", states[i]);
       name1 = Form("hH_%s", states1[i]);
       Condition = Form("Hospitalized>-999 && State==\"%s\"", states[i]);
       T->Draw("Hospitalized>>htemp2()", Condition.c_str());
@@ -514,7 +541,7 @@ void init_histos()
       hhospital[i]=new TH2D(name1.c_str(),name.c_str(),timebins, 0, timebins, 8000,0,8000);
       name=Form("Hospitalized:Days>>%s",name1.c_str());
       //T->Draw(name.c_str(),Condition.c_str());
-      
+      //
 
       name = Form("Mortality Rate (%s)", states[i]);
       name1 = Form("hMortR_%s", states1[i]);
@@ -531,20 +558,20 @@ void init_histos()
       T->Draw(name.c_str(),Condition.c_str());
 
 
-      name1 = Form("hdailyC_%s", states1[i]);
+      name1 = Form("hdailyC_%s; Time since 04/12", states1[i]);
       hC_daily[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-      name1 = Form("hdailyH_%s", states1[i]);
+      name1 = Form("hdailyH_%s; Time since 04/12", states1[i]);
       hH_daily[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-      name1 = Form("hdailyD_%s", states1[i]);
+      name1 = Form("hdailyD_%s; Time since 04/12", states1[i]);
       hD_daily[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-      name1 = Form("hhosp_conf_%s", states1[i]);
+      name1 = Form("hhosp_conf_%s; Time since 04/12", states1[i]);
       hH_C[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-      name1    = Form("hdeath_hosp_%s", states1[i]);
+      name1    = Form("hdeath_hosp_%s; Time since 04/12", states1[i]);
       hD_H[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
 
-      name1 = Form("hhosp4_conf_%s", states1[i]);
+      name1 = Form("hhosp4_conf_%s; Time since 04/12", states1[i]);
       hH4_C[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-      name1    = Form("hdeath21_hosp_%s", states1[i]);
+      name1    = Form("hdeath21_hosp_%s; Time since 04/12", states1[i]);
       hD21_H[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
 
       
@@ -584,6 +611,9 @@ void write_output()
 	
       }
   fgraphs->Close();
+  c2->SaveAs("./figs/Trends_daily_hosp_conf_deaths.pdf");
+  c3->SaveAs("./figs/Trends_lagged_daily_hosp_conf_deaths.pdf");
+  c4->SaveAs("./figs/daily_conf_hosp_deaths_barchart.pdf");
 }
 
 void fit_histos()
@@ -606,33 +636,32 @@ void fit_histos()
       fDH21[istate] = new TF1(name.c_str(),"expo", 0, timebins);
       
       hH_C[istate]->SetMinimum(0);
-      hH_C[istate]->Fit("fexpo","QL","R", 2, timebins-1);
+      hH_C[istate]->Fit("fexpo","Q","R", 2, timebins-2);
       
       //gSystem->ProcessEvents();
       fHC[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
       
       hD_H[istate]->SetMinimum(0);
-      hD_H[istate]->Fit("fexpo","QL","R", 2, timebins-1);
+      hD_H[istate]->Fit("fexpo","Q","R", 2, timebins-2);
       fDH[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
       hH4_C[istate]->SetMinimum(0);
-      hH4_C[istate]->Fit("fexpo","Q","R", 5, timebins-1);
+      hH4_C[istate]->Fit("fexpo","Q","R", 5, timebins-2);
       fHC4[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
       hD21_H[istate]->SetMinimum(0);
-      hD21_H[istate]->Fit("fexpo","Q","R", 21, timebins-1);
+      hD21_H[istate]->Fit("fexpo","Q","R", 21, timebins-2);
       fDH21[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
     }
 }
 
 
-void draw_fits()
+void draw_fits(const char *st1, const char *st2, const char* st3)
 {
-  TCanvas *c2  = new TCanvas("c2","Hosp. and Mort. Rates",1000, 400);
-  TCanvas *c3  = new TCanvas("c3","Hosp. and Mort. Rates (lagged)",1000, 400);
-
-  TCanvas *c4   = new TCanvas("c4","c4", 1000,700);
+  c2  = new TCanvas("c2","Hosp. and Mort. Rates",1000, 400);
+  c3  =new TCanvas("c3","Hosp. and Mort. Rates (lagged)",1000, 400);
+  c4   = new TCanvas("c4","c4", 1000,700);
   c4  ->Divide(3,3);
   
   c2->Divide(3,1);
@@ -640,9 +669,9 @@ void draw_fits()
   c3->Divide(3,1);
   
   char tmp[100];
-  TH1D *hdummy   = new TH1D("hFits","Fits to daily Hosp.Rate; Days since 04/12; ",timebins, 0, timebins);
+  TH1D *hdummy   = new TH1D("hFits","; Days since 04/12; ",timebins, 0, timebins);
   hdummy->GetYaxis()->SetRangeUser(0,1.4);
-  
+  hdummy->SetStats(0);
   c2 ->cd(1);
   hdummy->Draw();
   c2 ->cd(2);
@@ -658,36 +687,59 @@ void draw_fits()
   hdummy->Draw();
   
   
-  TLatex *lat;
+  
   for(int istate=0; istate<59; istate++)
     {
       //if(meanH1[istate]>80)
+      title = Form("Daily_Confirmed_%s",states1[istate]);
+      hC_daily[istate]->SetTitle(title.c_str());
+      title = Form("Daily_Hospitalized_%s",states1[istate]);
+      hH_daily[istate]->SetTitle(title.c_str());
+      title = Form("Daily_Deaths_%s",states1[istate]);
+      hD_daily[istate]->SetTitle(title.c_str());
       
-      if(strcmp(states[istate],plotstate[0])==0)
+      name  =Form("%s",states[istate]);
+      leg1  = new TLegend(0.099, 0.75, 0.70, 0.90);
+      leg1  ->SetHeader(name.c_str(), "C");
+      leg1  ->AddEntry(fHC[istate], "(Daily Hosp./Daily Conf)","l");
+      leg1  ->AddEntry(fDH[istate], "(Daily Death./Daily Hosp)","l");
+      leg1  ->SetTextColor(kBlack);
+      leg1  ->SetTextSize(0.041);
+
+      //name  =Form("%s",states[istate]);
+      leg2  = new TLegend(0.099, 0.75, 0.70, 0.90);
+      leg2  ->SetHeader(name.c_str(), "C");
+      leg2  ->AddEntry((TObject*)0, "Lagged curves", "C");
+      leg2  ->AddEntry(fHC[istate], "(Daily Hosp./Daily Conf)","l");
+      leg2  ->AddEntry(fDH[istate], "(Daily Death./Daily Hosp)","l");
+      leg2  ->SetTextColor(kBlack);
+      leg2  ->SetTextSize(0.041);
+	   
+      if(strcmp(states[istate],st1)==0)
 	 {
 	   c2->cd(1);
 	   fHC[istate]->Draw("same");
 	   fDH[istate]->Draw("same");
 	   fHC[istate]->SetLineColor(1);
 	   fDH[istate]->SetLineColor(1);
-	   fDH[istate]->SetLineStyle(10);
-	   name  =Form("%s",states[istate]);
-	   lat  = new TLatex(20, 1, name.c_str());
-	   lat  ->SetTextColor(kBlack);
-	   lat  ->SetTextSize(0.07);
-	   lat  ->Draw("same");
+	   fDH[istate]->SetLineStyle(7);
+	   leg1->Draw();
 
+	   
 	   c3->cd(1);
 	   fHC4[istate]->Draw("same");
 	   fDH21[istate]->Draw("same");
 	   fHC4[istate]->SetLineColor(1);
 	   fDH21[istate]->SetLineColor(1);
-	   fDH21[istate]->SetLineStyle(10);
+	   fDH21[istate]->SetLineStyle(7);
+	   leg2->Draw();
+
 	   
 	   c4->cd(1);
 	   hC_daily[istate]->Draw("bar");
 	   hC_daily[istate]->SetFillStyle(0);
 	   hC_daily[istate]->SetLineColor(1);
+	   
 	   c4->cd(4);
 	   hH_daily[istate]->Draw("bar");
 	   hH_daily[istate]->SetFillStyle(0);
@@ -698,27 +750,27 @@ void draw_fits()
 	   hD_daily[istate]->SetLineColor(1);
 	   
 	 }
-      
-      if(strcmp(states[istate],plotstate[1])==0)
-	{
+      if(strcmp(states[istate],st2)==0)
+      	{
 	  c2->cd(2);
 	  fHC[istate]->Draw("same");
 	  fDH[istate]->Draw("same");
 	  fHC[istate]->SetLineColor(2);
 	  fDH[istate]->SetLineColor(2);
-	  fDH[istate]->SetLineStyle(10);
-	  name  =Form("%s",states[istate]);
-	  lat  = new TLatex(20, 1, name.c_str());
-	  lat  ->SetTextColor(kBlack);
-	  lat  ->SetTextSize(0.07);
-	  lat  ->Draw("same");
+	  fDH[istate]->SetLineStyle(7);
+	  leg1  ->SetTextColor(kRed);
+	  leg1->Draw();
+	  
 
 	  c3->cd(2);
 	  fHC4[istate]->Draw("same");
 	  fDH21[istate]->Draw("same");
 	  fHC4[istate]->SetLineColor(2);
 	  fDH21[istate]->SetLineColor(2);
-	  fDH21[istate]->SetLineStyle(10);
+	  fDH21[istate]->SetLineStyle(7);
+	  leg2  ->SetTextColor(kRed);
+	  leg2->Draw();
+
 
 	  c4->cd(2);
 	  hC_daily[istate]->Draw("bar");
@@ -733,28 +785,27 @@ void draw_fits()
 	  hD_daily[istate]->SetFillStyle(0);
 	  hD_daily[istate]->SetLineColor(2);
 	}
-      
-      if(strcmp(states[istate],plotstate[2])==0)
-	{
+      if(strcmp(states[istate],st3)==0)
+      	{
 	  c2->cd(3);
 	  fHC[istate]->Draw("same");
 	  fDH[istate]->Draw("same");
 	  fHC[istate]->SetLineColor(4);
 	  fDH[istate]->SetLineColor(4);
-	  fDH[istate]->SetLineStyle(10);
-	  name  =Form("%s",states[istate]);
-	  lat  = new TLatex(20, 1, name.c_str());
-	  lat  ->SetTextColor(kBlack);
-	  lat  ->SetTextSize(0.07);
-	  lat  ->Draw("same");
-
+	  fDH[istate]->SetLineStyle(7);
+	  leg1  ->SetTextColor(kBlue);
+	  leg1->Draw();
+	  
 	  c3->cd(3);
 	  fHC4[istate]->Draw("same");
 	  fDH21[istate]->Draw("same");
 	  fHC4[istate]->SetLineColor(4);
 	  fDH21[istate]->SetLineColor(4);
-	  fDH21[istate]->SetLineStyle(10);
+	  fDH21[istate]->SetLineStyle(7);
+	  leg2  ->SetTextColor(kBlue);
+	  leg2->Draw();
 
+	  
 	  c4->cd(3);
 	  hC_daily[istate]->Draw("bar");
 	  hC_daily[istate]->SetFillStyle(0);
@@ -786,15 +837,34 @@ void get_means()
       meanH1[istate] = hhospital[istate]->GetMean(2);
       if(meanH1[istate]>80)cout<<states[istate]<<"  "<<meanH1[istate]<<endl;
     }
+
   cout<<" ###########################################"<<endl<<endl;
-  
-  cout<<" States that have daily hospitlizations avove 80 per day after June 12th: "<<endl;
+  cout<<" States that have daily hospitlizations above 80 per day between May 11th to June 11th : "<<endl;
   cout<<" ###########################################"<<endl;
   for(int istate=0; istate<59; istate++)
   {
-      hhospital[istate]->GetXaxis()->SetRangeUser(61,106);
+      hhospital[istate]->GetXaxis()->SetRangeUser(31,60);
       meanH2[istate] = hhospital[istate]->GetMean(2);
       if(meanH2[istate]>80)cout<<states[istate]<<"  "<<meanH2[istate]<<endl;
     }
   
+  
+  cout<<" ###########################################"<<endl<<endl;
+  cout<<" States that have daily hospitlizations above 80 per day after June 12th: "<<endl;
+  cout<<" ###########################################"<<endl;
+  for(int istate=0; istate<59; istate++)
+  {
+      hhospital[istate]->GetXaxis()->SetRangeUser(61,106);
+      meanH3[istate] = hhospital[istate]->GetMean(2);
+      if(meanH3[istate]>80)cout<<states[istate]<<"  "<<meanH3[istate]<<endl;
+    }
+  
+}
+
+void set_timebins_array()
+{
+  for (int itime=0; itime<timebins; itime++)
+    {
+      daysC[itime]  = itime; 
+    }
 }
