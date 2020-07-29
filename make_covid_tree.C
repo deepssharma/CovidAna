@@ -13,7 +13,7 @@
 Long64_t nentries;
 Long64_t nbytes;
 
-void make_covid_tree(int, const char* , const char*, const char*);
+void make_covid_tree(int, int, const char* , const char*, const char*);
 
 void define_tree();
 
@@ -25,9 +25,9 @@ void init_tree();
 
 void init_histos();
 
-void ana_tree();
+void ana_tree(int, int);
 
-void fit_histos();
+void fit_histos(int, int);
 
 void draw_fits(const char*, const char*, const char*);
 
@@ -109,8 +109,6 @@ const char *plotstate[3] ={"Massachusetts","Georgia","Florida"};
 int COLORS[9]  = {kBlack, kRed,kOrange,kSpring+5,kGreen,kCyan,kBlue,kMagenta+0,kPink+9};
 
 double daysC[timebins];
-//double daysC[timebins]={0, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,  97,  98,  99,  100,  101, 102, 103,104};
-
 
 TLegend *leg1;
 TLegend *leg2;
@@ -149,6 +147,7 @@ TH1D *hH_C[59];
 TH1D *hD_H[59];
 TH1D *hH4_C[59];
 TH1D *hD21_H[59];
+TH2D *hdailyHosp;
 
 TF1 *fHC[59];
 TF1 *fDH[59];
@@ -162,13 +161,13 @@ const char *states1[59]={"Alabama","Alaska","Arizona","Arkansas","California","C
 
 
 
-void make_covid_tree(int fetch_data =0, const char *st1="Massachusetts", const char *st2 ="Georgia",const char* st3 ="Florida")
+void make_covid_tree(int fetch_data =0, int timelagH =4, int timelagD = 21, const char *st1="Massachusetts", const char *st2 ="Georgia",const char* st3 ="Florida")
 {
   
   //sprintf(plotstate[0],"%s",st1);
   //sprintf(plotstate[1],"%s",st2);
   //sprintf(plotstate[2],"%s",st3);
-  
+  gErrorIgnoreLevel = kFatal;
   if(fetch_data==1)
     {
       cout<<"Reading the newly fetched data"<<endl;
@@ -202,12 +201,13 @@ void make_covid_tree(int fetch_data =0, const char *st1="Massachusetts", const c
       
       init_histos();
       
-      ana_tree();
+      ana_tree(timelagH, timelagD);
 
       get_means();
       
-      fit_histos();
-      cout<<st1<<"  "<<st2<<"  "<<st3<<endl;
+      fit_histos(timelagH, timelagD);
+
+      //cout<<st1<<"  "<<st2<<"  "<<st3<<endl;
       draw_fits(st1, st2, st3);
       
       write_output();
@@ -387,7 +387,7 @@ void init_tree()
   
 }
 
-void ana_tree()
+void ana_tree(int timelagH, int timelagD)
 {
   double cum_number=0;
   for (int i=0; i<59; i++)
@@ -438,12 +438,12 @@ void ana_tree()
       if(dailyH[st_index][cc]!=0 && dailyC[st_index][cc]!=0)
 	{
 	  dailyH_C[st_index][cc] =  dailyH[st_index][cc]/dailyC[st_index][cc];
-	  if(cc>=4 && dailyC[st_index][cc-4]>0)dailyH4_C[st_index][cc] =  dailyH[st_index][cc]/dailyC[st_index][cc-4];
+	  if(cc>=4 && dailyC[st_index][cc-timelagH]>0)dailyH4_C[st_index][cc] =  dailyH[st_index][cc]/dailyC[st_index][cc-timelagH];
 	}
       if(dailyH[st_index][cc]!=0 && dailyD[st_index][cc]!=0)
 	{
 	  dailyD_H[st_index][cc] =  dailyD[st_index][cc]/dailyH[st_index][cc];
-	  if(cc>=21 && dailyH[st_index][cc-21]!=0)dailyD21_H[st_index][cc] =  dailyD[st_index][cc]/dailyH[st_index][cc-21];
+	  if(cc>=21 && dailyH[st_index][cc-timelagD]!=0)dailyD21_H[st_index][cc] =  dailyD[st_index][cc]/dailyH[st_index][cc-timelagD];
 	}
 
       hhospital[st_index]->Fill(cc,dailyH[st_index][cc]);
@@ -452,7 +452,7 @@ void ana_tree()
      
     //if(string(State)=="Georgia")cout<<dailyH[st_index][cc]<<",  "<<dailyD[st_index][cc]<<"  "<<dailyD_H[st_index][cc]<<endl;;
     }
-  
+  hdailyHosp=(TH2D*)hhospital[0]->Clone("hdailyHosp");
   for(int istate=0; istate<59; istate++)
     {
       /*gr_deriv[istate] = new TGraphErrors(meanbins, daysC, dailyH[istate],0,0);
@@ -472,7 +472,10 @@ void ana_tree()
 	gr_dailyDH[istate]->SetMarkerStyle(20);
 	
       */
-      
+      if(istate>0) 
+	{
+	  hdailyHosp->Add(hhospital[istate]);
+	}
       for(int ibin=0; ibin<timebins; ibin++)
 	  {
 	    
@@ -488,8 +491,9 @@ void ana_tree()
 	    
 	    //
 	  }
-	
       
+	  
+	  
     }
   //cout<<State<<"  "<<Days<<"  "<<dailyC[st_index][i]<<"  "<<dailyH[st_index][i]<<"  "<<dailyD[st_index][i]<<endl;
   
@@ -556,7 +560,7 @@ void init_histos()
       hhosptR[i] = new TH2D(name1.c_str(),name.c_str(),timebins, 0, timebins, 60,0,30);
       name=Form("HospRate:Days>>%s",name1.c_str());
       T->Draw(name.c_str(),Condition.c_str());
-
+      
 
       name1 = Form("hdailyC_%s; Time since 04/12", states1[i]);
       hC_daily[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
@@ -573,7 +577,7 @@ void init_histos()
       hH4_C[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
       name1    = Form("hdeath21_hosp_%s; Time since 04/12", states1[i]);
       hD21_H[i]  = new TH1D(name1.c_str(), name1.c_str(), timebins, 0, timebins);
-
+      
       
     }
   //hCH   = new TH2D("hCH","hCH", timebins, 0, timebins, 5000, 0, 5000);
@@ -583,6 +587,7 @@ void write_output()
 {
   TFile *fgraphs = new TFile("./graphs.root","RECREATE");
   fgraphs->cd();
+  
   for(int istate=0; istate<59; istate++)
       {
 	/*name = Form("grH_%s", states1[istate]);
@@ -610,13 +615,15 @@ void write_output()
 	hhospital[istate]->Write();
 	
       }
+  
+  hdailyHosp->Write();
   fgraphs->Close();
   c2->SaveAs("./figs/Trends_daily_hosp_conf_deaths.pdf");
   c3->SaveAs("./figs/Trends_lagged_daily_hosp_conf_deaths.pdf");
   c4->SaveAs("./figs/daily_conf_hosp_deaths_barchart.pdf");
 }
 
-void fit_histos()
+void fit_histos(int timelagH, int timelagD)
 {
   //TCanvas *c1 = new TCanvas();
   TF1 *fexpo  = new TF1("fexpo","expo", 0, timebins);
@@ -636,21 +643,24 @@ void fit_histos()
       fDH21[istate] = new TF1(name.c_str(),"expo", 0, timebins);
       
       hH_C[istate]->SetMinimum(0);
-      hH_C[istate]->Fit("fexpo","Q","R", 2, timebins-2);
+      hH_C[istate]->Fit("fexpo","QL","R", 2, timebins-2);
       
       //gSystem->ProcessEvents();
       fHC[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
-      
+
+      fexpo  = new TF1("fexpo","expo", 0, timebins);
       hD_H[istate]->SetMinimum(0);
       hD_H[istate]->Fit("fexpo","Q","R", 2, timebins-2);
       fDH[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
+      fexpo  = new TF1("fexpo","expo", 0, timebins);
       hH4_C[istate]->SetMinimum(0);
-      hH4_C[istate]->Fit("fexpo","Q","R", 5, timebins-2);
+      hH4_C[istate]->Fit("fexpo","QL","R", timelagH, timebins-2);
       fHC4[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
+      fexpo  = new TF1("fexpo","expo", 0, timebins);
       hD21_H[istate]->SetMinimum(0);
-      hD21_H[istate]->Fit("fexpo","Q","R", 21, timebins-2);
+      hD21_H[istate]->Fit("fexpo","Q","R", timelagD, timebins-2);
       fDH21[istate]->SetParameters(fexpo->GetParameter(0), fexpo->GetParameter(1));
 
     }
@@ -829,34 +839,36 @@ void draw_fits(const char *st1, const char *st2, const char* st3)
 void get_means()
 {
   cout<<" ###########################################"<<endl;
-  cout<<" States that have daily hospitlizations above 80 per day between Apri12th to May 10th: "<<endl;
+  cout<<" States that have daily hospitlizations above 100 per day between Apri 12th to May 10th: "<<endl;
   cout<<" ###########################################"<<endl;
+  
+
   for(int istate=0; istate<59; istate++)
     {
       hhospital[istate]->GetXaxis()->SetRangeUser(0,30);
       meanH1[istate] = hhospital[istate]->GetMean(2);
-      if(meanH1[istate]>80)cout<<states[istate]<<"  "<<meanH1[istate]<<endl;
+      if(meanH1[istate]>100)cout<<states[istate]<<"  "<<meanH1[istate]<<endl;
     }
 
   cout<<" ###########################################"<<endl<<endl;
-  cout<<" States that have daily hospitlizations above 80 per day between May 11th to June 11th : "<<endl;
+  cout<<" States that have daily hospitlizations above 100 per day between May 11th to June 11th : "<<endl;
   cout<<" ###########################################"<<endl;
   for(int istate=0; istate<59; istate++)
   {
       hhospital[istate]->GetXaxis()->SetRangeUser(31,60);
       meanH2[istate] = hhospital[istate]->GetMean(2);
-      if(meanH2[istate]>80)cout<<states[istate]<<"  "<<meanH2[istate]<<endl;
+      if(meanH2[istate]>100)cout<<states[istate]<<"  "<<meanH2[istate]<<endl;
     }
   
   
   cout<<" ###########################################"<<endl<<endl;
-  cout<<" States that have daily hospitlizations above 80 per day after June 12th: "<<endl;
+  cout<<" States that have daily hospitlizations above 100 per day after June 12th: "<<endl;
   cout<<" ###########################################"<<endl;
   for(int istate=0; istate<59; istate++)
   {
       hhospital[istate]->GetXaxis()->SetRangeUser(61,106);
       meanH3[istate] = hhospital[istate]->GetMean(2);
-      if(meanH3[istate]>80)cout<<states[istate]<<"  "<<meanH3[istate]<<endl;
+      if(meanH3[istate]>100)cout<<states[istate]<<"  "<<meanH3[istate]<<endl;
     }
   
 }
